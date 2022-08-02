@@ -1,0 +1,25 @@
+{
+    "Version":"2012-10-17",
+    "Statement":[
+       {
+          "Effect":"Allow",
+          "Principal":{
+             "Service":[
+                "states.amazonaws.com"
+             ],
+             "AWS": [
+                 "arn:aws:iam::<accountid>:root"
+             ]
+          },
+          "Action":"sts:AssumeRole",
+          "Condition":{
+             "ArnLike":{
+                "aws:SourceArn":"arn:aws:states:<region>:<accountid>:stateMachine:*"
+             },
+             "StringEquals":{
+                "aws:SourceAccount":"<accountid>"
+             }
+          }
+       }
+    ]
+  }

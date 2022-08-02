@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template is used to create step functions execution role.
+
+Parameters:
+  StepFunctionsExecutionRoleName:
+    Type: String
+    Description: AWS Step Functions Execution role name
+  statemachineactivitynameprefix:
+    Type: String
+    Description: State Machines Prefix
+
+Resources:
+  StepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref StepFunctionsExecutionRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:              
+              - states.amazonaws.com
+            AWS:
+              - arn:aws:iam::<accountid>:root
+              # you can limit it further down to the role name itself
+            #  - arn:aws:iam::<accountid>:role/<sf_execution_role_name> 
+          Action:
+          - sts:AssumeRole
+          Condition:
+            ArnLike:
+              aws:SourceArn: arn:aws:states:<region>:<accountid>:stateMachine:*
+            StringEquals:
+              aws:SourceAccount: <accountid>
+      Path: "/"
+  
+  StepFunctionsExecutionRoleBasePolicy: 
+    Type: AWS::IAM::Policy
+    Properties: 
+      Roles:
+        - !Ref StepFunctionsExecutionRoleName
+      PolicyName: !Sub ${StepFunctionsExecutionRoleName}_execution_policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          # You can use Step Functions with several other services like Lambda, Athena etc.
+          - Sid: CloudWatchLogPermission
+            Effect: Allow
+            Action:
+              - logs:CreateLogDelievery
+              - logs:GetLogDelivery
+              - logs:UpdateLogDelivery
+              - logs:DeleteLogDelivery
+              - logs:ListLogDelivery
+              - logs:PutResourcePolicy
+              - logs:DescribeResourcePolicies
+              - logs:DescribeLogGroups
+            Resource: "*"
+          - Sid: XRayPermissions
+            Effect: Allow
+            Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+              - xray:GetSamplingRules
+              - xray:GetSamplingTargets
+            Resource: "*"
+          - Sid: StateMachineActions
+            Effect: Allow
+            Action:
+              - states:StartExecution
+              - states:DescribeExecution
+              - states:StopExecution
+            Resource: "*"
+          - Sid: LambdaInvokeFunction
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource: "*"
+          - Sid: SQSSendMessage
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: "*"
+          - Sid: SNSPublish
+            Effect: Allow
+            Action:
+              - sns:Publish
+            Resource: "*"
+  
+  StepFunctionsDeveloperPolicy: 
+    Type: AWS::IAM::Policy
+    Properties: 
+      Roles:
+        - !Ref StepFunctionsExecutionRoleName
+      PolicyName: !Sub ${StepFunctionsExecutionRoleName}_developer_policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Sid: StepFunctionsResourceSpecificAccess
+            Effect: Allow
+            Action:
+              - states:DescribeActivity
+              - states:DescribeStateMachine
+              - states:ListExecutions
+              - states:UpdateStateMachine
+              - states:DeleteStateMachine
+              - states:UntagResource
+              - states:DescribeStateMachineForExecution
+              - states:DescribeExecution
+              - states:GetExecutionHistory
+              - states:DeleteActivity
+              - states:StartExecution
+              - states:GetActivityTask
+              - states:ListTagsForResource
+            Resource: 
+              - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${statemachineactivitynameprefix}*
+              - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:activity:${statemachineactivitynameprefix}*
+              - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${statemachineactivitynameprefix}*
