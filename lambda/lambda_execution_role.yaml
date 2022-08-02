@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template is used to create lambda execution role.
+
+Parameters:
+  lambdaExecutionRoleName:
+    Type: String
+    Description: AWS Lambda Execution role name
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref lambdaExecutionRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:              
+              - lambda.amazonaws.com
+            AWS:
+              - arn:aws:iam::<accountid>:root
+              # you can limit it further down to the role name itself
+            #  - arn:aws:iam::<accountid>:role/<lambda_execution_role_name> 
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+# Another way to attach the IAM policies
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+  
+
+  lambdaExecutionRoleIAMPolicy: 
+    Type: AWS::IAM::Policy
+    Properties: 
+      Roles:
+        - !Ref lambdaExecutionRoleName
+      PolicyName: !Sub ${lambdaExecutionRoleName}_execution_policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*:*
+          - Sid: XRayAccess
+            Effect: Allow
+            Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+              - xray:GetSamplingRules
+              - xray:GetSamplingTargets
+              - xray:GetSamplingStatisticSummaries
+            Resource: "*"
