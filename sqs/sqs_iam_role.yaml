@@ -27,7 +27,7 @@ Resources:
             AWS:
               - arn:aws:iam::<accountid>:root
               # you can limit it further down to the role name itself
-            #  - arn:aws:iam::<accountid>:role/<s3_role_name> 
+            #  - arn:aws:iam::<accountid>:role/<sqs_role_name> 
           Action:
           - sts:AssumeRole
       Path: "/"
