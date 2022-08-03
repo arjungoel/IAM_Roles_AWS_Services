@@ -1,0 +1,131 @@
+# version: 1.0
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This Template Deploys Basic AWS Functional User for S3 service.
+Parameters:
+  s3ReadBucketAccess:
+    Type: String
+    Description: Comma delimited list of s3 buckets (no space after the comma) that the user will need Read access to. Bucket ARN required. Optional value to fill.
+  s3WriteBucketAccess:
+    Type: String
+    Description: Comma delimited list of s3 buckets (no space after the comma) that the user will need Write access to. Bucket ARN required. Optional value to fill.
+  KMSKeys:
+    Type: String
+    Description: Comma delmited list of all encryption keys (no space after the comma) that the user will need encrypt/decrypt access to. ARN required. Optional value to fill.
+  FuncUsername:
+    Type: String
+    Description: Name for Functional user
+  PrimaryOwner:
+    Type: String
+    Description: Primary Owner for this user
+  SecondaryOwner:
+    Type: String
+    Description: Secondary Owner for this user
+  CostCentre:
+    Type: String
+    Description: Cost Centre
+  BusinessUnit:
+    Type: String
+    Description: Business Unit
+
+Conditions:
+  S3WriteBucketAccessProvided: !Not [!Equals [!Ref s3WriteBucketAccess, ""]]
+  S3ReadBucketAccessProvided: !Not [!Equals [!Ref s3ReadBucketAccess, ""]]
+  KMSKeysProvided: !Not [!Equals [!Ref KMSKeys, ""]]
+
+Resources:
+  FuncUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref FuncUsername
+      Tags:
+        - Key: primary_owner
+          Value: !Ref PrimaryOwner
+        - Key: secondary_owner
+          Value: !Ref SecondaryOwner
+        - Key: cost_centre
+          Value: !Ref CostCentre
+        - Key: business_unit
+          Value: !Ref BusinessUnit
+  FuncUserAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    DependsOn: FuncUser
+    Properties:
+      Users:
+        - !Ref FuncUsername
+      ManagedPolicyName: !Sub "${FuncUsername}_access_policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - !If
+            - S3ReadBucketAccessProvided
+            - Sid: "S3ReadAccess"
+              Effect: "Allow"
+              Action:
+                - "s3:ListBucket*"
+                - "s3:ListObject*"
+                - "s3:GetBucket*"
+                - "s3:GetObject*"
+                - "s3:ListMultipartUploadParts"
+              Resource: !Split
+                - ","
+                - !Ref s3ReadBucketAccess
+            - !Ref "AWS::NoValue"
+
+          - !If
+            - S3WriteBucketAccessProvided
+            - Sid: "S3WriteAccess"
+              Effect: "Allow"
+              Action:
+                - "s3:PutAnalyticsConfiguration"
+                - "s3:AbortMultipartUpload"
+                - "s3:PutBucketVersioning"
+                - "s3:PutLifecycleConfiguration"
+                - "s3:PutInventoryConfiguration"
+                - "s3:DeleteObjectVersion"
+                - "s3:RestoreObject"
+                - "s3:DeleteObject"
+                - "s3:DeleteObjectTagging"
+                - "s3:PutObjectVersionTagging"
+                - "s3:DeleteObjectVersionTagging"
+                - "s3:PutObject*"
+                - "s3:PutBucketNotification"
+              Resource: !Split
+                - ","
+                - !Ref s3WriteBucketAccess
+            - !Ref "AWS::NoValue"
+                            
+          - !If
+            - KMSKeysProvided
+            - Sid: "KMSKeysAccess"
+              Effect: "Allow"
+              Action:
+                - "kms:Decrypt"
+                - "kms:Encrypt"
+                - "kms:DescribeKey"
+                - "kms:ReEncrypt*"
+                - "kms:GenerateDataKey*"
+                - "kms:RevokeGrant"
+                - "kms:ListGrants"
+                - "kms:CreateGrant"
+              Resource: !Split
+                - ","
+                - !Ref KMSKeys
+            - !Ref "AWS::NoValue"
+          - Effect: "Allow"
+            Action:
+              - s3:ListAllMyBuckets
+              - s3:HeadBucket
+            Resource: "*"
+            Condition:
+              Bool:
+                aws:SecureTransport:
+                  - True
+          - Effect: "Allow"
+            Action:
+              - "kms:ListAliases"
+            Resource: "*"
+            Condition:
+              Bool:
+                aws:SecureTransport:
+                  - True
