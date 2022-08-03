@@ -43,7 +43,7 @@ Resources:
     Type: AWS::IAM::ManagedPolicy
     DependsOn: S3IAMRole
     Properties:
-      Users:
+      Roles:
         - !Ref IAMRolename
       ManagedPolicyName: !Sub "${IAMRolename}_access_policy"
       PolicyDocument:
