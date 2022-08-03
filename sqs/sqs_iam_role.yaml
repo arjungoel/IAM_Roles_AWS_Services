@@ -1,0 +1,84 @@
+# version: 1.0
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This Template Deploys Basic AWS IAM role for accessing SQS Queue.
+Parameters:
+  QueuePrefix:
+    Type: String
+    Description: Prefix for creating SQS Queue.
+  KMSKeys:
+    Type: String
+    Description: Comma delimited list of all encryption keys (no space after the comma) that the IAM role will need encrypt/decrypt access to. ARN required. Optional value to fill.
+  IAMRolename:
+    Type: String
+    Description: Name of the IAM role
+
+
+Resources:
+  SQSIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref IAMRolename
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS:
+              - arn:aws:iam::<accountid>:root
+              # you can limit it further down to the role name itself
+            #  - arn:aws:iam::<accountid>:role/<s3_role_name> 
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+
+  SQSAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    DependsOn: SQSIAMRole
+    Properties:
+      Roles:
+        - !Ref IAMRolename
+      ManagedPolicyName: !Sub "${IAMRolename}_sqs_policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowRoleToCreateQueueAndDoTasks
+            Effect: Allow
+            Action:
+              - sqs:*
+            Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${QueuePrefix}*"
+          - Sid: AllowDevelopersToWriteMessagesToSharedQueue
+            Effect: Allow
+            Action:
+#You can use * instead of SendMessage to grant the following actions to a principal on a shared queue: 
+#ChangeMessageVisibility, DeleteMessage, GetQueueAttributes, GetQueueUrl, ReceiveMessage, and SendMessage
+              - sqs:SendMessage
+            Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${QueuePrefix}*"
+          - Sid: GetSizeOfQueues
+            Effect: Allow
+            Action:
+              - sqs:GetQueueAttributes
+            Resource: "*"
+          - Sid: KMSKeysAccess
+            Effect: Allow
+            Action:
+              - kms:Decrypt
+              - kms:Encrypt
+              - kms:DescribeKey
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:RevokeGrant
+              - kms:ListGrants
+              - kms:CreateGrant
+            Resource: !Split
+              - ","
+              - !Ref KMSKeys
+          - Effect: "Allow"
+            Action:
+              - kms:ListAliases
+            Resource: "*"
+            Condition:
+              Bool:
+                aws:SecureTransport:
+                  - True
+          
