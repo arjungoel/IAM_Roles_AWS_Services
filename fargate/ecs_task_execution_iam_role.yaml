@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template is used to create execution role for ECS to handle tasks.
+
+Parameters:
+  ECSTaskExecutionRoleName:
+    Type: String
+    Description: AWS ECS Task Execution role name
+
+Resources:
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref ECSTaskExecutionRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:              
+              - ecs-tasks.amazonaws.com
+            AWS:
+              - arn:aws:iam::<accountid>:root
+              # you can limit it further down to the role name itself
+            #  - arn:aws:iam::<accountid>:role/<lambda_execution_role_name> 
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  
+
+  TaskExecutionRoleIAMPolicy: 
+    Type: AWS::IAM::Policy
+    Properties: 
+      Roles:
+        - !Ref ECSTaskExecutionRoleName
+      PolicyName: !Sub ${ECSTaskExecutionRoleName}_execution_policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "*"
+
+  TaskExecutionRoleAccessPolicy: 
+    Type: AWS::IAM::Policy
+    Properties: 
+      Roles:
+        - !Ref ECSTaskExecutionRoleName
+      PolicyName: !Sub ${ECSTaskExecutionRoleName}_access_policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Sid: PrivateRegistryAuthentication
+            Effect: Allow
+            Action:
+              - kms:Decrypt
+              - ssm:GetParameters
+              - secretsmanager:GetSecretValue
+            Resource:
+              - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:<secret_name>
+              - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/<key_id>
+          - Sid: FargateTasksPullingAmazonECRImagesOverInterfaceEndpoints
+            Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:sourceVpce: "vpce-xxxxxx" #Restricts access to a specific VPC endpoint.
+                aws:sourceVpc: "vpc-xxxxx" #Restricts access to a specific VPC.
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: arn:aws:s3:::<bucketname>/*"
+            Condition:
+              ArnLike:
+                aws:SourceArn: arn:aws:ecs:<region>:<accountid>:*
+              StringEquals:
+                aws:SourceAccount: <accountid>
