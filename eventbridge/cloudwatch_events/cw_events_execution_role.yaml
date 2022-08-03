@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template is used to create cloudwatch event rule execution role.
+
+Parameters:
+  CWRuleExecutionRoleName:
+    Type: String
+    Description: AWS CloudWatch Event Rule Execution role name
+
+Resources:
+  CWRuleExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref CWRuleExecutionRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:              
+              - events.amazonaws.com
+            AWS:
+              - arn:aws:iam::<accountid>:root
+              # you can limit it further down to the role name itself
+            #  - arn:aws:iam::<accountid>:role/<cwrule_execution_role_name> 
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/CloudWatchEventsBuiltInTargetExecutionAccess
+        - arn:aws:iam::aws:policy/service-role/CloudWatchEventsInvocationAccess
+  
+  CWAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties: 
+      Roles:
+        - !Ref CWRuleExecutionRoleName
+      PolicyName: !Sub ${CWRuleExecutionRoleName}_execution_policy
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+# You can drill down the access as per your need
+          - Sid: LambdaAsTarget
+            Effect: Allow
+            Action:
+              - lambda:*
+            Resource: "*" 
